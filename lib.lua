@@ -1,18 +1,6 @@
 -- =============================================================================
--- FIREDEPT UI LIBRARY - MAIN API
+-- FIREDEPT UI LIBRARY - MAIN API (EVENT-BASED!)
 -- =============================================================================
-
---[[
-    Professional UI Framework for FiveM
-
-    USAGE:
-    local UI = exports.firedept_ui:GetAPI()
-
-    local panel = UI.CreatePanel({...})
-    UI.Notify('success', 'Message')
-    UI.Progress('Loading...', 5000)
-    UI.Dialog({...})
-]]
 
 UI = {
     _version = '1.0.0',
@@ -56,51 +44,36 @@ function UI.Initialize()
     -- Start Renderer
     UI.Renderer.Start()
 
+    -- ✅ NOW SET CreatePanel (after UI.Panel is loaded!)
+    UI.CreatePanel = function(config)
+        if not config.id then
+            error("Panel requires an 'id'")
+        end
+
+        if UI._components[config.id] then
+            print("^3[FD-UI] Warning: Panel '" .. config.id .. "' already exists, returning existing^0")
+            return UI._components[config.id]
+        end
+
+        local panel = UI.Panel.new(config)
+        UI._components[config.id] = panel
+
+        return panel
+    end
+
     UI._ready = true
 
     print("^2[FD-UI] ✓ Library Ready!^0")
     print("^2[FD-UI] ✓ Components: " .. #UI._components .. "^0")
     print("^2[FD-UI] ✓ Theme: " .. UI.Theme.name .. "^0")
+
+    -- ✅ TRIGGER EVENT!
+    TriggerEvent('firedept_ui:ready')
 end
 
 -- =============================================================================
--- HIGH-LEVEL API - PANELS
+-- HIGH-LEVEL API - PANELS (other methods)
 -- =============================================================================
-
-function UI.CreatePanel(config)
-    --[[
-        Creates a HUD Panel
-
-        PARAMS:
-        - id: Unique identifier
-        - position: 'left-top', 'left-center', {x, y}, etc.
-        - width: Number (pixels or 0.0-1.0 for %)
-        - theme: Theme name
-
-        RETURNS: Panel instance
-
-        EXAMPLE:
-        local panel = UI.CreatePanel({
-            id = 'fire_info',
-            position = 'left-center',
-            width = 250
-        })
-    ]]
-
-    if not config.id then
-        error("Panel requires an 'id'")
-    end
-
-    if UI._components[config.id] then
-        print("^3[FD-UI] Warning: Panel '" .. config.id .. "' already exists, returning existing^0")
-        return UI._components[config.id]
-    end
-
-    local panel = UI.Panel.new(config)
-    UI._components[config.id] = panel
-
-    return panel
-end
 
 function UI.GetPanel(id)
     return UI._components[id]
@@ -118,25 +91,9 @@ end
 -- =============================================================================
 
 function UI.Notify(type, message, options)
-    --[[
-        Shows a notification
-
-        PARAMS:
-        - type: 'success', 'error', 'warning', 'info'
-        - message: String
-        - options: {duration, position, icon}
-
-        EXAMPLE:
-        UI.Notify('success', 'Feuer gelöscht!', {
-            duration = 3000,
-            position = 'top-right'
-        })
-    ]]
-
     return UI.Notifications.Show(type, message, options)
 end
 
--- Shortcuts
 function UI.Success(message, duration)
     return UI.Notify('success', message, { duration = duration })
 end
@@ -158,25 +115,6 @@ end
 -- =============================================================================
 
 function UI.Dialog(config)
-    --[[
-        Shows a modal dialog
-
-        PARAMS:
-        - title: String
-        - message: String
-        - buttons: Array of {label, callback}
-
-        EXAMPLE:
-        UI.Dialog({
-            title = 'Confirm',
-            message = 'Are you sure?',
-            buttons = {
-                {label = 'Yes', callback = function() end},
-                {label = 'No'}
-            }
-        })
-    ]]
-
     return UI.Dialogs.Show(config)
 end
 
@@ -202,15 +140,6 @@ function UI.Alert(title, message)
 end
 
 function UI.Input(title, placeholder, callback)
-    --[[
-        Shows an input dialog
-
-        EXAMPLE:
-        UI.Input('Enter name', 'Your name...', function(value)
-            print('Entered: ' .. value)
-        end)
-    ]]
-
     return UI.Dialogs.Input(title, placeholder, callback)
 end
 
@@ -219,22 +148,6 @@ end
 -- =============================================================================
 
 function UI.Progress(label, duration, options)
-    --[[
-        Shows a progress circle/bar
-
-        PARAMS:
-        - label: String
-        - duration: Milliseconds
-        - options: {onComplete, onCancel, canCancel}
-
-        EXAMPLE:
-        UI.Progress('Loading...', 5000, {
-            onComplete = function()
-                print('Done!')
-            end
-        })
-    ]]
-
     return UI.Progress.Show(label, duration, options)
 end
 
@@ -243,23 +156,6 @@ end
 -- =============================================================================
 
 function UI.Menu(config)
-    --[[
-        Shows a context menu
-
-        PARAMS:
-        - title: String
-        - items: Array of {label, icon, callback}
-
-        EXAMPLE:
-        UI.Menu({
-            title = 'Fire Options',
-            items = {
-                {label = 'Extinguish', icon = '🧯', callback = function() end},
-                {label = 'Call Backup', icon = '📞', callback = function() end}
-            }
-        })
-    ]]
-
     return UI.Menus.Show(config)
 end
 
@@ -268,22 +164,6 @@ end
 -- =============================================================================
 
 function UI.ShowInteraction(coords, text, options)
-    --[[
-        Shows a 3D interaction prompt
-
-        PARAMS:
-        - coords: vector3
-        - text: String (e.g., "[E] Open Door")
-        - options: {key, onPress, distance}
-
-        EXAMPLE:
-        UI.ShowInteraction(fireCoords, '[E] Extinguish', {
-            key = 38,  -- E
-            onPress = function() end,
-            distance = 2.0
-        })
-    ]]
-
     return UI.Interactions.Show(coords, text, options)
 end
 
@@ -294,7 +174,6 @@ end
 function UI.SetTheme(themeName)
     UI.Theme = UITheme.Load(themeName)
 
-    -- Update all components
     for id, component in pairs(UI._components) do
         if component.ApplyTheme then
             component:ApplyTheme(UI.Theme)
@@ -354,13 +233,7 @@ end
 -- =============================================================================
 
 function GetAPI()
-    if not UI._ready then
-        print("^3[FD-UI] Warning: Library not initialized yet, waiting...^0")
-        while not UI._ready do
-            Citizen.Wait(100)
-        end
-    end
-
+    -- ✅ Return immediately! CreatePanel will wait internally
     return UI
 end
 
@@ -376,10 +249,7 @@ Citizen.CreateThread(function()
         Citizen.Wait(100)
     end
 
-    -- Small delay to ensure all files loaded
-    Citizen.Wait(500)
-
-    -- Initialize
+    -- Initialize immediately!
     UI.Initialize()
 end)
 
